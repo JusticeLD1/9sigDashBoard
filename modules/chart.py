@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import modules.market_data 
 
-import matplotlib.pyplot as plt
+
 
 def chart(stock1, stock2, start_date):
     # 1) Get stock data
