@@ -8,3 +8,8 @@ def portfolio_value(stock1,stock2,cash):
     #return total value
     return stock1_value + stock2_value + cash
 
+def portfolio_value_csv(positions):
+    total = 0 
+    for i in positions:
+        total += modules.market_data.current_ticker_price(i) * positions[i]["Shares"]
+    return total

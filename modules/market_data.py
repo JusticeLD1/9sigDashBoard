@@ -14,8 +14,6 @@ def current_ticker_price(ticker):
     return stock_price
 
 
-test = current_ticker_price("AAPL")
-print(test)
 
 def get_percentage_change(stock: str, start_date: str, end_date: str):
     # Download stock data
