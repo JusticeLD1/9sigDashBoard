@@ -30,6 +30,9 @@ if csv_or_manual == "CSV":
     stock_1 = "TQQQ"
     if uploaded_file != None:
         shares_1 = csvportion.parseCSVfile.get_symbol_data(uploaded_file)[stock_1]["Shares"]
+    else:
+        st.warning("Please upload a CSV file to view your portfolio.")
+        st.stop()
 else:
     # Manual Entry for Stock Holdings
     stock_1 = st.sidebar.text_input("Stock 1 Ticker", value="TQQQ").upper()
