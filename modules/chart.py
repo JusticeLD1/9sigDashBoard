@@ -44,7 +44,6 @@ def csv_chart(positions, start_date):
     return fig 
 
 
-
 def manual_total_value_chart(stock1, stock2, cash_balance, start_date):
     """
     Create a chart showing total portfolio value over time for manually entered holdings.
@@ -77,7 +76,8 @@ def manual_total_value_chart(stock1, stock2, cash_balance, start_date):
     stock1_data = stock1_data.loc[common_dates]
     stock2_data = stock2_data.loc[common_dates]
     
-    # Create a new figure
+    # Create a new figure and clear the current figure to avoid duplicate legends
+    plt.clf()
     fig, ax = plt.subplots(figsize=(12, 6))
     fig.tight_layout(pad=4.0)
     
@@ -91,7 +91,7 @@ def manual_total_value_chart(stock1, stock2, cash_balance, start_date):
     # Calculate total portfolio value
     total_value = stock1_values + stock2_values + cash_series
     
-    # Plot the data
+    # Plot the data (using a single plot call for total value)
     ax.plot(common_dates, total_value, label="Total Portfolio Value", linewidth=2.5, color='blue')
     
     # Add individual components as thinner lines
@@ -104,6 +104,8 @@ def manual_total_value_chart(stock1, stock2, cash_balance, start_date):
     ax.set_xlabel("Date", fontsize=12)
     ax.set_ylabel("Value ($)", fontsize=12)
     ax.grid(True, alpha=0.3)
+    
+    # Create a proper legend (use loc='best' to automatically find the best placement)
     ax.legend(loc='best')
     
     # Format y-axis as dollars
@@ -111,6 +113,7 @@ def manual_total_value_chart(stock1, stock2, cash_balance, start_date):
     
     # Return the figure
     return fig
+
 
 def total_value_chart(positions, start_date):
     """

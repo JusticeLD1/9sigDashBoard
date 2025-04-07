@@ -35,6 +35,7 @@ if csv_or_manual == "CSV":
     stock_1 = "TQQQ"
     shares_1 = 0  # Default value
     
+    # Only try to process the file if it's actually uploaded
     if uploaded_file is not None:
         try:
             portfolio_data2 = csvportion.parseCSVfile.get_symbol_data(uploaded_file)
@@ -44,8 +45,12 @@ if csv_or_manual == "CSV":
                 shares_1 = 0
         except Exception as e:
             st.sidebar.error(f"Error parsing file: {str(e)}")
+            # Reset to default if there's an error
+            portfolio_data2 = {"TQQQ": {"Average Cost": 0, "Shares": 0}}
             shares_1 = 0
     else:
+        # Set default portfolio when no file is uploaded
+        portfolio_data2 = {"TQQQ": {"Average Cost": 0, "Shares": 0}}
         shares_1 = 0
 else:
     # Manual Entry for Stock Holdings
