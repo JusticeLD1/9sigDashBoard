@@ -24,15 +24,27 @@ csv_or_manual = st.sidebar.radio("Select input method", ["CSV", "Manual"])
 st.sidebar.subheader("📅 Strategy Start Date")
 start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2024-01-01"))
 
+# Replace the Portfolio Holdings Input section in app.py with this:
+
 # ---- Portfolio Holdings Input ----
 if csv_or_manual == "CSV":
-    uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv", "xlsx"])
+    uploaded_file = st.sidebar.file_uploader("Upload CSV/Excel", type=["csv", "xlsx", "xls"])
     stock_1 = "TQQQ"
-    if uploaded_file != None:
-        shares_1 = csvportion.parseCSVfile.get_symbol_data(uploaded_file)[stock_1]["Shares"]
+    
+    # Initialize shares_1 with default value
+    shares_1 = 0
+    
+    # Only try to get symbol data if file was uploaded
+    if uploaded_file is not None:
+        try:
+            portfolio_data2 = csvportion.parseCSVfile.get_symbol_data(uploaded_file)
+            if "TQQQ" in portfolio_data2:
+                shares_1 = portfolio_data2["TQQQ"]["Shares"]
+        except Exception as e:
+            st.sidebar.error(f"Error parsing file: {str(e)}")
     else:
-        st.warning("Please upload a CSV file to view your portfolio.")
-        st.stop()
+        # Create empty portfolio data for CSV mode when no file is uploaded
+        portfolio_data2 = {"TQQQ": {"Average Cost": 0, "Shares": 0}}
 else:
     # Manual Entry for Stock Holdings
     stock_1 = st.sidebar.text_input("Stock 1 Ticker", value="TQQQ").upper()
@@ -40,18 +52,21 @@ else:
     stock_2 = st.sidebar.text_input("Stock 2 Ticker", value="QQQ").upper()
     shares_2 = st.sidebar.number_input("Shares of Stock 2", value=10, step=1, min_value=0)
 
-# Additional Holdings
-st.sidebar.subheader("💰 Additional Holdings")
-cash_balance = st.sidebar.number_input("Excess Cash ($)", value=1000, step=100, min_value=0)
-
 # ---- Portfolio Value Calculation ----
 if csv_or_manual == "Manual":
     risky_stock = [stock_1, shares_1]
     base_stock = [stock_2, shares_2]
     port_value = round(modules.portfolio.portfolio_value(risky_stock, base_stock, cash_balance), 2)
 else:
-    portfolio_data2 = csvportion.parseCSVfile.get_symbol_data(uploaded_file)
-    port_value = round(modules.portfolio.portfolio_value_csv(portfolio_data2), 2)
+    # Only calculate portfolio value if file was uploaded
+    if uploaded_file is not None:
+        try:
+            port_value = round(modules.portfolio.portfolio_value_csv(portfolio_data2), 2)
+        except Exception as e:
+            port_value = 0
+            st.error(f"Error calculating portfolio value: {str(e)}")
+    else:
+        port_value = 0
 
 # ---- Main Dashboard ----
 st.markdown("---")
