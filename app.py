@@ -25,6 +25,8 @@ start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2024-01-01"))
 # ---- Portfolio Holdings Input ----
 if csv_or_manual == "CSV":
     uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv", "xlsx"])
+    stock_1 = "TQQQ"
+    shares_1 = csvportion.parseCSVfile.get_symbol_data(uploaded_file)[stock_1]["Shares"]
 else:
     # Manual Entry for Stock Holdings
     stock_1 = st.sidebar.text_input("Stock 1 Ticker", value="TQQQ").upper()
@@ -82,7 +84,7 @@ col1, col2 = st.columns(2)
 
 # Gain Percentage Calculation
 with col1:
-    st.subheader("📈 Gain Percentage")
+    st.subheader("📈 TQQQ Gain Percentage")
     try:
         gain_percentage = modules.market_data.get_percentage_change(stock_1, start_date, pd.to_datetime("today"))
         st.metric(label=f"{stock_1} Change Since Start", value=f"{gain_percentage:.2f}%")
