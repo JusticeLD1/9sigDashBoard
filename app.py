@@ -6,6 +6,8 @@ import modules.market_data
 import modules.rebalance
 import modules.chart
 import csvportion.parseCSVfile
+import matplotlib
+matplotlib.use('Agg')  # Use the 'Agg' backend
 
 # ---- Streamlit App Title ----
 st.set_page_config(page_title="Portfolio Tracker", layout="wide")
@@ -59,6 +61,36 @@ else:
     st.write("Upload CSV file to view portfolio balance")
     if uploaded_file is not None:
         st.metric(label="Total Portfolio Balance", value=f"${port_value: ,}")
+
+
+# ---- Total Portfolio Value Chart ----
+st.markdown("---")
+st.subheader("📈 Total Portfolio Value Over Time")
+
+# Create a separator between charts
+st.write("This chart shows the growth of your entire portfolio including all assets.")
+
+# Generate chart based on input method
+try:
+    if csv_or_manual == "Manual":
+        fig = modules.chart.manual_total_value_chart(
+            [stock_1, shares_1],  # First stock
+            [stock_2, shares_2],  # Second stock
+            cash_balance,         # Cash
+            start_date            # Start date
+        )
+        st.pyplot(fig)
+    else:  # CSV method
+        if uploaded_file is not None:
+            fig = modules.chart.total_value_chart(portfolio_data2, start_date)
+            st.pyplot(fig)
+        else:
+            st.info("📤 Please upload a CSV file to view your portfolio value chart.")
+except Exception as e:
+    st.error(f"⚠️ Unable to generate portfolio value chart: {str(e)}")
+    st.info("Ensure your stock tickers are valid and dates are within range.")
+
+
 
 # ---- Portfolio Holdings Table ----
 st.write("### 📌 Your Current Holdings")
@@ -126,7 +158,7 @@ except:
 
 # ---- Portfolio Progress Chart ----
 st.markdown("---")
-st.subheader("📉 Portfolio Progress Over Time")
+st.subheader("📉 Individual Holdings Progress Over Time")
 
 # Generate Chart
 #if manual entry
@@ -144,13 +176,3 @@ else:
             st.pyplot(fig)
         except:
             st.warning("⚠️ Unable to generate chart. Ensure stock tickers are correct.")
-
-#portfolio value chart
-st.markdown("---")
-st.subheader("📈 Portfolio Value Over Time")
-if csv_or_manual == "CSV":
-    try:
-        fig = modules.chart.total_value_chart(portfolio_data2, start_date)
-        st.pyplot(fig)
-    except:
-        st.warning("⚠️ Unable to generate chart. Ensure stock tickers are correct.")
