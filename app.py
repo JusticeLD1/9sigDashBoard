@@ -26,7 +26,6 @@ start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2024-01-01"))
 # Additional Holdings
 st.sidebar.subheader("💰 Additional Holdings")
 cash_balance = st.sidebar.number_input("Excess Cash ($)", value=1000, step=100, min_value=0)
-# Replace this section in your app.py file
 
 # ---- Portfolio Holdings Input ----
 # Initialize with default empty portfolio
@@ -69,6 +68,7 @@ else:
     shares_1 = st.sidebar.number_input("Shares of Stock 1", value=100, step=1, min_value=0)
     stock_2 = st.sidebar.text_input("Stock 2 Ticker", value="QQQ").upper()
     shares_2 = st.sidebar.number_input("Shares of Stock 2", value=10, step=1, min_value=0)
+
 # ---- Portfolio Value Calculation ----
 if csv_or_manual == "Manual":
     risky_stock = [stock_1, shares_1]

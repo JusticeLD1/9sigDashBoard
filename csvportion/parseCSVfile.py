@@ -1,16 +1,7 @@
 import pandas as pd
 
 def get_symbol_data(file):
-    """
-    Extract stock symbol data from an uploaded CSV or Excel file.
-    
-    Parameters:
-    file: A file object uploaded through st.file_uploader
-    
-    Returns:
-    Dictionary with stock symbols as keys and dictionaries of details as values
-    """
-    # Important: Check if file is None first, before any pandas operations
+    # First check if file is None
     if file is None:
         return {"TQQQ": {"Average Cost": 0, "Shares": 0}}
     
@@ -45,7 +36,7 @@ def get_symbol_data(file):
         return positions
         
     except Exception as e:
-        # Log the error (could use a proper logging system in production)
+        # Log the error
         print(f"Error in get_symbol_data: {str(e)}")
         # Return a default portfolio on error
         return {"TQQQ": {"Average Cost": 0, "Shares": 0}}
