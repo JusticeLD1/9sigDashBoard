@@ -26,39 +26,49 @@ start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2024-01-01"))
 # Additional Holdings
 st.sidebar.subheader("💰 Additional Holdings")
 cash_balance = st.sidebar.number_input("Excess Cash ($)", value=1000, step=100, min_value=0)
+# Replace this section in your app.py file
 
 # ---- Portfolio Holdings Input ----
-portfolio_data2 = {"TQQQ": {"Average Cost": 0, "Shares": 0}}  # Default empty portfolio
+# Initialize with default empty portfolio
+portfolio_data2 = {"TQQQ": {"Average Cost": 0, "Shares": 0}}
 
 if csv_or_manual == "CSV":
-    uploaded_file = st.sidebar.file_uploader("Upload CSV/Excel", type=["csv", "xlsx", "xls"])
+    # Set defaults
     stock_1 = "TQQQ"
-    shares_1 = 0  # Default value
+    shares_1 = 0
     
-    # Only try to process the file if it's actually uploaded
+    # File uploader
+    uploaded_file = st.sidebar.file_uploader("Upload CSV/Excel", type=["csv", "xlsx", "xls"])
+    
+    # Try to process the file if it exists
     if uploaded_file is not None:
         try:
+            # Get portfolio data from file
             portfolio_data2 = csvportion.parseCSVfile.get_symbol_data(uploaded_file)
+            
+            # Extract TQQQ shares or set to 0 if not found
             if "TQQQ" in portfolio_data2:
                 shares_1 = portfolio_data2["TQQQ"]["Shares"]
             else:
                 shares_1 = 0
+                
+            # Display success message
+            st.sidebar.success("File processed successfully!")
+            
         except Exception as e:
-            st.sidebar.error(f"Error parsing file: {str(e)}")
-            # Reset to default if there's an error
+            # Show error and reset to defaults
+            st.sidebar.error(f"Error processing file: {str(e)}")
             portfolio_data2 = {"TQQQ": {"Average Cost": 0, "Shares": 0}}
             shares_1 = 0
     else:
-        # Set default portfolio when no file is uploaded
-        portfolio_data2 = {"TQQQ": {"Average Cost": 0, "Shares": 0}}
-        shares_1 = 0
+        # No file uploaded message
+        st.sidebar.info("Please upload a file to view your portfolio.")
 else:
     # Manual Entry for Stock Holdings
     stock_1 = st.sidebar.text_input("Stock 1 Ticker", value="TQQQ").upper()
     shares_1 = st.sidebar.number_input("Shares of Stock 1", value=100, step=1, min_value=0)
     stock_2 = st.sidebar.text_input("Stock 2 Ticker", value="QQQ").upper()
     shares_2 = st.sidebar.number_input("Shares of Stock 2", value=10, step=1, min_value=0)
-
 # ---- Portfolio Value Calculation ----
 if csv_or_manual == "Manual":
     risky_stock = [stock_1, shares_1]
