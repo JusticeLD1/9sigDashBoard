@@ -76,8 +76,7 @@ def manual_total_value_chart(stock1, stock2, cash_balance, start_date):
     stock1_data = stock1_data.loc[common_dates]
     stock2_data = stock2_data.loc[common_dates]
     
-    # Create a new figure and clear the current figure to avoid duplicate legends
-    plt.clf()
+    # Create a completely new figure - avoiding plt.clf() which may not fully clear legend data
     fig, ax = plt.subplots(figsize=(12, 6))
     fig.tight_layout(pad=4.0)
     
@@ -91,13 +90,15 @@ def manual_total_value_chart(stock1, stock2, cash_balance, start_date):
     # Calculate total portfolio value
     total_value = stock1_values + stock2_values + cash_series
     
-    # Plot the data (using a single plot call for total value)
-    ax.plot(common_dates, total_value, label="Total Portfolio Value", linewidth=2.5, color='blue')
+    # Plot each line and store the line objects
+    lines = []
+    lines.append(ax.plot(common_dates, total_value, linewidth=2.5, color='blue')[0])
+    lines.append(ax.plot(common_dates, stock1_values, linewidth=1, alpha=0.7)[0])
+    lines.append(ax.plot(common_dates, stock2_values, linewidth=1, alpha=0.7)[0])
+    lines.append(ax.plot(common_dates, cash_series, linewidth=1, alpha=0.7, linestyle='--')[0])
     
-    # Add individual components as thinner lines
-    ax.plot(common_dates, stock1_values, label=f"{stock1[0]} Value", linewidth=1, alpha=0.7)
-    ax.plot(common_dates, stock2_values, label=f"{stock2[0]} Value", linewidth=1, alpha=0.7)
-    ax.plot(common_dates, cash_series, label="Cash", linewidth=1, alpha=0.7, linestyle='--')
+    # Create labels for legend
+    labels = ["Total Portfolio Value", f"{stock1[0]} Value", f"{stock2[0]} Value", "Cash"]
     
     # Add labels and styling
     ax.set_title("Total Portfolio Value Over Time", fontsize=14, fontweight='bold')
@@ -105,15 +106,14 @@ def manual_total_value_chart(stock1, stock2, cash_balance, start_date):
     ax.set_ylabel("Value ($)", fontsize=12)
     ax.grid(True, alpha=0.3)
     
-    # Create a proper legend (use loc='best' to automatically find the best placement)
-    ax.legend(loc='best')
+    # Create a single legend with all line objects at once
+    ax.legend(lines, labels, loc='best')
     
     # Format y-axis as dollars
     ax.yaxis.set_major_formatter('${x:,.0f}')
     
     # Return the figure
     return fig
-
 
 def total_value_chart(positions, start_date):
     """
