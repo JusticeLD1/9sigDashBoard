@@ -192,6 +192,8 @@ except Exception as e:
 try:
     gain_percentage = modules.market_data.get_percentage_change("TQQQ", previous_quarter, next_quarter)
     st.write(f"📊 TQQQ has gained **{gain_percentage:.2f}%** since {previous_quarter}.")
+    # Get TQQQ shares from portfolio_data
+    tqqq_shares = portfolio_data.get("TQQQ", {}).get("Shares", 0)
     shares_to_buy_or_sell = modules.rebalance.tqqq_quarterly_buy(tqqq_shares, gain_percentage)
     st.success(f"📌 Adjustments: **Buy/Sell {shares_to_buy_or_sell} shares of TQQQ ** to maintain a 9% increase in holdings.")
 except Exception as e:
