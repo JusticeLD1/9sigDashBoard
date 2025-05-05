@@ -7,11 +7,34 @@ import modules.market_data
 import modules.rebalance
 import modules.chart
 import csvportion.parseCSVfile
+import login
 
 # ---- Streamlit App Title ----
 st.set_page_config(page_title="Portfolio Tracker", layout="wide")
 st.title("📊 Portfolio Tracker Dashboard")
 
+# Initialize session state for stock prices if not already done
+if 'stock_prices' not in st.session_state:
+    st.session_state.stock_prices = {}
+    st.session_state.stock_prices['TQQQ'] = 0
+    st.session_state.stock_prices['QQQ'] = 0
+
+# Add refresh button in sidebar
+if st.sidebar.button("🔄 Refresh Stock Prices"):
+    try:
+        # Only fetch prices for symbols we currently have
+        for symbol in st.session_state.stock_prices.keys():
+            st.session_state.stock_prices[symbol] = modules.market_data.current_ticker_price(symbol)
+        st.sidebar.success("Stock prices updated!")
+    except Exception as e:
+        st.sidebar.error(f"Error updating prices: {str(e)}")
+
+#sign up / login button 
+if st.sidebar.button("Sign Up"):
+    login.signup()
+if st.sidebar.button("Login"):
+    login.login()
+    
 # ---- Sidebar - User Inputs ----
 st.sidebar.header("⚙️ Portfolio Setup")
 
@@ -29,12 +52,9 @@ cash_balance = st.sidebar.number_input("Excess Cash ($)", value=1000, step=100, 
 
 # ---- Portfolio Holdings Input ----
 # Initialize with default empty portfolio
-portfolio_data2 = {"TQQQ": {"Average Cost": 0, "Shares": 0}}
+portfolio_data = {"TQQQ": {"Average Cost": 0, "Shares": 0}}
 
 if csv_or_manual == "CSV":
-    # Set defaults
-    stock_1 = "TQQQ"
-    shares_1 = 0
     
     # File uploader
     uploaded_file = st.sidebar.file_uploader("Upload CSV/Excel", type=["csv", "xlsx", "xls"])
@@ -43,47 +63,52 @@ if csv_or_manual == "CSV":
     if uploaded_file is not None:
         try:
             # Get portfolio data from file
-            portfolio_data2 = csvportion.parseCSVfile.get_symbol_data(uploaded_file)
+            portfolio_data = csvportion.parseCSVfile.get_symbol_data(uploaded_file)
             
-            # Extract TQQQ shares or set to 0 if not found
-            if "TQQQ" in portfolio_data2:
-                shares_1 = portfolio_data2["TQQQ"]["Shares"]
-            else:
-                shares_1 = 0
+            # Only fetch prices for new symbols when file is uploaded
+            for symbol in portfolio_data.keys():
+                if symbol not in st.session_state.stock_prices:
+                    st.session_state.stock_prices[symbol] = 0
                 
             # Display success message
             st.sidebar.success("File processed successfully!")
+            st.sidebar.info("Click 'Refresh Stock Prices' to update current prices")
             
         except Exception as e:
             # Show error and reset to defaults
             st.sidebar.error(f"Error processing file: {str(e)}")
-            portfolio_data2 = {"TQQQ": {"Average Cost": 0, "Shares": 0}}
-            shares_1 = 0
+            portfolio_data = {"TQQQ": {"Average Cost": 0, "Shares": 0}}
+      
     else:
         # No file uploaded message
         st.sidebar.info("Please upload a file to view your portfolio.")
 else:
     # Manual Entry for Stock Holdings
-    stock_1 = st.sidebar.text_input("Stock 1 Ticker", value="TQQQ").upper()
-    shares_1 = st.sidebar.number_input("Shares of Stock 1", value=100, step=1, min_value=0)
-    stock_2 = st.sidebar.text_input("Stock 2 Ticker", value="QQQ").upper()
-    shares_2 = st.sidebar.number_input("Shares of Stock 2", value=10, step=1, min_value=0)
+    tqqq_shares = st.sidebar.number_input("TQQQ Shares", value=0, step=1, min_value=0)
+    tqqq_cost = st.sidebar.number_input("TQQQ Average Cost", value=0, step=1, min_value=0)
+    stock2 = st.sidebar.text_input("Stock 2 Ticker", value="QQQ").upper()
+    stock2_shares = st.sidebar.number_input("Shares of Stock 2", value=10, step=1, min_value=0)
+    stock2_cost = st.sidebar.number_input("Stock 2 Average Cost", value=0, step=1, min_value=0)
+    
+    # Add new symbol to stock prices if needed
+    if stock2 not in st.session_state.stock_prices:
+        st.session_state.stock_prices[stock2] = 0
+            
+    #transfer data in portfolio_data 
+    portfolio_data["TQQQ"] = {"Average Cost": tqqq_cost, "Shares": tqqq_shares}
+    portfolio_data[stock2] = {"Average Cost": stock2_cost, "Shares": stock2_shares}
 
 # ---- Portfolio Value Calculation ----
-if csv_or_manual == "Manual":
-    risky_stock = [stock_1, shares_1]
-    base_stock = [stock_2, shares_2]
-    port_value = round(modules.portfolio.portfolio_value(risky_stock, base_stock, cash_balance), 2)
-else:
-    # Only calculate portfolio value if file was uploaded
-    if uploaded_file is not None:
-        try:
-            port_value = round(modules.portfolio.portfolio_value_csv(portfolio_data2), 2)
-        except Exception as e:
-            port_value = 0
-            st.error(f"Error calculating portfolio value: {str(e)}")
-    else:
-        port_value = 0
+# Calculate portfolio value using stored prices
+try:
+    port_value = sum(
+        details["Shares"] * st.session_state.stock_prices.get(symbol, 0)
+        for symbol, details in portfolio_data.items()
+    )
+    port_value = round(port_value, 2)
+except Exception as e:
+    port_value = 0
+    st.error(f"Error calculating portfolio value: {str(e)}")
 
 # ---- Main Dashboard ----
 st.markdown("---")
@@ -101,35 +126,24 @@ else:
 
 # ---- Portfolio Holdings Table ----
 st.write("### 📌 Your Current Holdings")
-if csv_or_manual == "Manual":
-    portfolio_data = {
-        "Stock": [stock_1, stock_2],
-        "Shares Held": [shares_1, shares_2],
-        "Excess Cash": [f"${cash_balance:,.2f}", ""]
-    }
-    df_portfolio = pd.DataFrame(portfolio_data)
+
+# Convert portfolio_data dictionary to DataFrame for display
+holdings_data = []
+for symbol, details in portfolio_data.items():
+    current_price = st.session_state.stock_prices.get(symbol, 0)
+    holdings_data.append({
+        "Symbol": symbol,
+        "Shares": details.get("Shares", 0),
+        "Average Cost": details.get("Average Cost", 0),
+        "Current Price": current_price,
+        "Total Value": round(details.get("Shares", 0) * current_price, 2)
+    })
+            
+if holdings_data:
+    df_portfolio = pd.DataFrame(holdings_data)
     st.table(df_portfolio)
 else:
-    if uploaded_file is not None:
-        try:
-            # Convert portfolio_data2 dictionary to DataFrame for display
-            holdings_data = []
-            for symbol, details in portfolio_data2.items():
-                holdings_data.append({
-                    "Symbol": symbol,
-                    "Shares": details.get("Shares", 0),
-                    "Average Cost": details.get("Average Cost", 0)
-                })
-            
-            if holdings_data:
-                df_portfolio2 = pd.DataFrame(holdings_data)
-                st.table(df_portfolio2)
-            else:
-                st.info("No holdings found in the uploaded file")
-        except Exception as e:
-            st.error(f"Error displaying holdings: {str(e)}")
-    else:
-        st.info("Upload CSV/Excel file to view your holdings")
+    st.info("Upload CSV/Excel file or input them to view your holdings")
 
 # ---- Portfolio Performance & Adjustments ----
 st.markdown("---")
@@ -142,8 +156,8 @@ col1, col2 = st.columns(2)
 with col1:
     st.subheader("📈 TQQQ Gain Percentage")
     try:
-        gain_percentage = modules.market_data.get_percentage_change(stock_1, start_date, pd.to_datetime("today"))
-        st.metric(label=f"{stock_1} Change Since Start", value=f"{gain_percentage:.2f}%")
+        gain_percentage = modules.market_data.get_percentage_change("TQQQ", start_date, pd.to_datetime("today"))
+        st.metric(label=f"{"TQQQ"} Change Since Start", value=f"{gain_percentage:.2f}%")
     except Exception as e:
         st.warning(f"Unable to calculate gain percentage: {str(e)}")
 
@@ -176,10 +190,10 @@ except Exception as e:
 
 # ---- Rebalancing Suggestions ----
 try:
-    gain_percentage = modules.market_data.get_percentage_change(stock_1, previous_quarter, next_quarter)
-    st.write(f"📊 {stock_1} has gained **{gain_percentage:.2f}%** since {previous_quarter}.")
-    shares_to_buy_or_sell = modules.rebalance.tqqq_quarterly_buy(shares_1, gain_percentage)
-    st.success(f"📌 Adjustments: **Buy/Sell {shares_to_buy_or_sell} shares of {stock_1}** to maintain a 9% increase in holdings.")
+    gain_percentage = modules.market_data.get_percentage_change("TQQQ", previous_quarter, next_quarter)
+    st.write(f"📊 TQQQ has gained **{gain_percentage:.2f}%** since {previous_quarter}.")
+    shares_to_buy_or_sell = modules.rebalance.tqqq_quarterly_buy(tqqq_shares, gain_percentage)
+    st.success(f"📌 Adjustments: **Buy/Sell {shares_to_buy_or_sell} shares of TQQQ ** to maintain a 9% increase in holdings.")
 except Exception as e:
     st.warning(f"⚠️ Unable to calculate rebalancing suggestions: {str(e)}")
 
@@ -188,23 +202,12 @@ st.markdown("---")
 st.subheader("📉 Portfolio Progress Over Time")
 
 # Generate Chart
-if csv_or_manual == "Manual":
-    try:
-        fig = modules.chart.manual_chart(risky_stock, base_stock, start_date)
-        st.pyplot(fig)
-        plt.close(fig)  # Close the figure to free memory
-    except Exception as e:
-        st.warning(f"⚠️ Unable to generate chart: {str(e)}")
-else:
-    if uploaded_file is not None:
-        try:
-            fig = modules.chart.csv_chart(portfolio_data2, start_date)
-            st.pyplot(fig)
-            plt.close(fig)  # Close the figure to free memory
-        except Exception as e:
-            st.warning(f"⚠️ Unable to generate chart: {str(e)}")
-    else:
-        st.info("Upload CSV/Excel file to view portfolio progress chart")
+try:
+    fig = modules.chart.csv_chart(portfolio_data, start_date)
+    st.pyplot(fig)
+    plt.close(fig)  # Close the figure to free memory
+except Exception as e:
+    st.warning(f"⚠️ Unable to generate chart: {str(e)}")
 
 # ---- Total Portfolio Value Chart ----
 st.markdown("---")
@@ -212,24 +215,12 @@ st.subheader("📈 Total Portfolio Value Over Time")
 
 # Generate chart based on input method
 try:
-    if csv_or_manual == "Manual":
-        fig = modules.chart.manual_total_value_chart(
-            [stock_1, shares_1],
-            [stock_2, shares_2],
-            cash_balance,
-            start_date
-        )
-        if fig is not None:
-            st.pyplot(fig)
-            plt.close(fig)  # Close the figure to free memory
-    else:  # CSV method
-        if uploaded_file is not None:
-            fig = modules.chart.total_value_chart(portfolio_data2, start_date)
-            if fig is not None:
-                st.pyplot(fig)
-                plt.close(fig)  # Close the figure to free memory
-        else:
-            st.info("📤 Please upload a CSV/Excel file to view your portfolio value chart.")
+    fig = modules.chart.total_value_chart(portfolio_data, start_date)
+    if fig is not None:
+        st.pyplot(fig)
+        plt.close(fig)  # Close the figure to free memory
+    else:
+        st.info("📤 Please upload a CSV/Excel file to view your portfolio value chart.")
 except Exception as e:
     st.error(f"⚠️ Unable to generate portfolio value chart: {str(e)}")
     
