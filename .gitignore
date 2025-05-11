@@ -20,4 +20,4 @@ ENV/
 .env
 
 # Logs
-*.log 
+*.log
