@@ -1,17 +1,58 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import modules
 import modules.portfolio
 import modules.market_data
 import modules.rebalance
 import modules.chart
 import csvportion.parseCSVfile
-import login
+import os
+from modules.database import PortfolioDB
+import modules.auth  # Import the auth module directly
 
 # ---- Streamlit App Title ----
 st.set_page_config(page_title="Portfolio Tracker", layout="wide")
 st.title("📊 Portfolio Tracker Dashboard")
+
+# Initialize database
+os.makedirs("data", exist_ok=True)  # Create data directory if it doesn't exist
+db = PortfolioDB("data/portfolio_app.db")
+
+# Initialize authentication
+auth = modules.auth.PortfolioAuth(db)  # Use the full module path
+
+# Check if the user is logged in
+if not auth.require_login():
+    # If not logged in, the login form is displayed by require_login
+    # and we stop execution here
+    st.stop()
+
+# After login
+# Add logout button to sidebar
+if st.sidebar.button("Log Out"):
+    auth.logout()
+    st.rerun()
+
+# Display user information
+username = auth.get_username()
+user_data = auth.get_user_data()
+
+# Display welcome message
+st.sidebar.success(f"Welcome, {user_data['full_name']}!")
+
+# Load user's portfolio data from database
+portfolio = db.get_portfolio(username)
+if portfolio:
+    portfolio_data = portfolio['portfolio_data']
+    cash_balance = portfolio['cash_balance']
+    start_date = pd.to_datetime(portfolio['start_date'])
+else:
+    # Initialize with default empty portfolio
+    portfolio_data = {"TQQQ": {"Average Cost": 0, "Shares": 0}}
+    cash_balance = 1000
+    start_date = pd.to_datetime("2024-01-01")
+    # Create initial portfolio in database
+    db.create_portfolio(username, portfolio_data, cash_balance, start_date.strftime("%Y-%m-%d"))
 
 # Initialize session state for stock prices if not already done
 if 'stock_prices' not in st.session_state:
@@ -29,12 +70,6 @@ if st.sidebar.button("🔄 Refresh Stock Prices"):
     except Exception as e:
         st.sidebar.error(f"Error updating prices: {str(e)}")
 
-#sign up / login button 
-if st.sidebar.button("Sign Up"):
-    login.signup()
-if st.sidebar.button("Login"):
-    login.login()
-    
 # ---- Sidebar - User Inputs ----
 st.sidebar.header("⚙️ Portfolio Setup")
 
@@ -44,18 +79,14 @@ csv_or_manual = st.sidebar.radio("Select input method", ["CSV", "Manual"])
 
 # Strategy Start Date Selection
 st.sidebar.subheader("📅 Strategy Start Date")
-start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2024-01-01"))
+start_date = st.sidebar.date_input("Start Date", start_date)
 
 # Additional Holdings
 st.sidebar.subheader("💰 Additional Holdings")
-cash_balance = st.sidebar.number_input("Excess Cash ($)", value=1000, step=100, min_value=0)
+cash_balance = st.sidebar.number_input("Excess Cash ($)", value=float(cash_balance), step=100.0, min_value=0.0)
 
 # ---- Portfolio Holdings Input ----
-# Initialize with default empty portfolio
-portfolio_data = {"TQQQ": {"Average Cost": 0, "Shares": 0}}
-
 if csv_or_manual == "CSV":
-    
     # File uploader
     uploaded_file = st.sidebar.file_uploader("Upload CSV/Excel", type=["csv", "xlsx", "xls"])
     
@@ -65,11 +96,15 @@ if csv_or_manual == "CSV":
             # Get portfolio data from file
             portfolio_data = csvportion.parseCSVfile.get_symbol_data(uploaded_file)
             
-            # Only fetch prices for new symbols when file is uploaded
+            # Update stock prices for any new symbols
             for symbol in portfolio_data.keys():
                 if symbol not in st.session_state.stock_prices:
                     st.session_state.stock_prices[symbol] = 0
-                
+            
+            # Save to database
+            db.update_portfolio(username, portfolio_data)
+            db.update_portfolio_settings(username, cash_balance, start_date.strftime("%Y-%m-%d"))
+            
             # Display success message
             st.sidebar.success("File processed successfully!")
             st.sidebar.info("Click 'Refresh Stock Prices' to update current prices")
@@ -78,25 +113,25 @@ if csv_or_manual == "CSV":
             # Show error and reset to defaults
             st.sidebar.error(f"Error processing file: {str(e)}")
             portfolio_data = {"TQQQ": {"Average Cost": 0, "Shares": 0}}
-      
-    else:
-        # No file uploaded message
-        st.sidebar.info("Please upload a file to view your portfolio.")
 else:
     # Manual Entry for Stock Holdings
-    tqqq_shares = st.sidebar.number_input("TQQQ Shares", value=0, step=1, min_value=0)
-    tqqq_cost = st.sidebar.number_input("TQQQ Average Cost", value=0, step=1, min_value=0)
+    tqqq_shares = st.sidebar.number_input("TQQQ Shares", value=float(portfolio_data.get("TQQQ", {}).get("Shares", 0)), step=1.0, min_value=0.0)
+    tqqq_cost = st.sidebar.number_input("TQQQ Average Cost", value=float(portfolio_data.get("TQQQ", {}).get("Average Cost", 0)), step=1.0, min_value=0.0)
     stock2 = st.sidebar.text_input("Stock 2 Ticker", value="QQQ").upper()
-    stock2_shares = st.sidebar.number_input("Shares of Stock 2", value=10, step=1, min_value=0)
-    stock2_cost = st.sidebar.number_input("Stock 2 Average Cost", value=0, step=1, min_value=0)
+    stock2_shares = st.sidebar.number_input("Shares of Stock 2", value=float(portfolio_data.get(stock2, {}).get("Shares", 10)), step=1.0, min_value=0.0)
+    stock2_cost = st.sidebar.number_input("Stock 2 Average Cost", value=float(portfolio_data.get(stock2, {}).get("Average Cost", 0)), step=1.0, min_value=0.0)
     
     # Add new symbol to stock prices if needed
     if stock2 not in st.session_state.stock_prices:
         st.session_state.stock_prices[stock2] = 0
-            
-    #transfer data in portfolio_data 
+    
+    # Update portfolio data
     portfolio_data["TQQQ"] = {"Average Cost": tqqq_cost, "Shares": tqqq_shares}
     portfolio_data[stock2] = {"Average Cost": stock2_cost, "Shares": stock2_shares}
+    
+    # Save to database
+    db.update_portfolio(username, portfolio_data)
+    db.update_portfolio_settings(username, cash_balance, start_date.strftime("%Y-%m-%d"))
 
 # ---- Portfolio Value Calculation ----
 # Calculate portfolio value using stored prices
